@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When Does the Model Pay?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one reading column; control panel left / charts right on wide screens, stacked on phones.
+   The x-axis of both charts is the same: what one outreach contact costs. */
+:root {
+  --bg: #f7f8f6; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #77756f;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --model: #2a78d6; --model-wash: rgba(42,120,214,0.10); --all: #eb6834; --sim: #1baf7a;
+  --good: #006300; --bad: #b3261e;
+  --f-display: "Fraunces", Georgia, serif; --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+  --grid: #2c2c2a; --axis: #4a4a46; --ring: rgba(255,255,255,0.10);
+  --model: #3987e5; --model-wash: rgba(57,135,229,0.16); --all: #d95926; --sim: #199e70;
+  --good: #3fbf3f; --bad: #ff7b72; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+  --grid: #2c2c2a; --axis: #4a4a46; --ring: rgba(255,255,255,0.10);
+  --model: #3987e5; --model-wash: rgba(57,135,229,0.16); --all: #d95926; --sim: #199e70;
+  --good: #3fbf3f; --bad: #ff7b72; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 24px; }
+header { display: grid; gap: 8px; max-width: 72ch; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 600 clamp(28px, 4vw, 40px)/1.1 var(--f-display); margin: 0; text-wrap: balance; }
+.lede { color: var(--ink-2); margin: 0; }
+.main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 18px; display: grid; gap: 18px; }
+.ctl { display: grid; gap: 6px; }
+.ctl label { display: flex; justify-content: space-between; gap: 8px; font-weight: 500; font-size: 14px; }
+.ctl output { font: 500 14px var(--f-mono); font-variant-numeric: tabular-nums; }
+.ctl small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+input[type=range] { width: 100%; accent-color: var(--model); }
+select { width: 100%; font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--model); outline-offset: 2px; }
+.sim { border-top: 1px dashed var(--axis); padding-top: 14px; display: grid; gap: 10px; }
+.tag { display: inline-block; font: 500 11px/1 var(--f-mono); letter-spacing: .06em; padding: 4px 6px; border-radius: 4px;
+  border: 1px solid var(--sim); color: var(--ink); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.right { display: grid; gap: 18px; min-width: 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font: 500 22px/1.2 var(--f-mono); }
+.stat .s { font-size: 12px; color: var(--ink-2); }
+.verdict { font-size: 15px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--ring); }
+.verdict b { font-weight: 600; }
+.pill { display: inline-block; font: 600 12px/1 var(--f-body); padding: 4px 8px; border-radius: 999px; margin-right: 6px; border: 1px solid currentColor; }
+.pill.good { color: var(--good); } .pill.bad { color: var(--bad); } .pill.flat { color: var(--muted); }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 14px 14px 8px; display: grid; gap: 6px; min-width: 0; }
+figcaption { display: grid; gap: 2px; }
+figcaption b { font-weight: 600; font-size: 15px; }
+figcaption span { color: var(--ink-2); font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+.chart { position: relative; width: 100%; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font: 11px var(--f-mono); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); min-width: 180px; }
+.tip .row { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.tip .row i { width: 14px; border-top: 2px solid; display: inline-block; }
+.tip .row strong { font: 500 12px var(--f-mono); color: var(--ink); }
+.tip .row span { color: var(--ink-2); flex: 1; }
+details { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; }
+summary { cursor: pointer; font-weight: 500; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 500; }
+.notes { color: var(--ink-2); font-size: 13px; max-width: 80ch; display: grid; gap: 6px; }
+.notes p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">nuMoM2b · 14-day postpartum readmission · test set n = 2,633, 46 readmissions</div>
+    <h1>When does the model pay?</h1>
+    <p class="lede">A risk model only earns money when it beats the two strategies that need no model: contact every new mother, or contact none. Move the cost of one outreach contact and watch where that happens.</p>
+  </header>
+
+  <div class="main">
+    <form class="panel" id="controls" onsubmit="return false">
+      <div class="ctl">
+        <label for="cost">Cost per patient contacted <output id="costOut"></output></label>
+        <input type="range" id="cost" min="5" max="400" step="5" value="50">
+        <small>Medicaid pays ≈ $44 for a home visit and ≈ $47 for a physician phone call (national means per claim line)</small>
+      </div>
+      <div class="ctl">
+        <label for="eff">Readmissions prevented among those reached <output id="effOut"></output></label>
+        <input type="range" id="eff" min="5" max="60" step="1" value="20">
+        <small>Base case 20%, range 10–50%; 50% is optimistic (Supplementary Table S2)</small>
+      </div>
+      <div class="ctl">
+        <label for="rc">Cost of one readmission <output id="rcOut"></output></label>
+        <input type="range" id="rc" min="4000" max="15000" step="100" value="8100">
+        <small>Base case $8,100 (mean hospital cost, NRD, 2024 dollars); median-based $5,200; range $5,200–11,100</small>
+      </div>
+      <div class="ctl">
+        <label for="impl">Model running cost per delivery <output id="implOut"></output></label>
+        <input type="range" id="impl" min="0" max="6" step="0.1" value="3">
+        <small>Charged to the model strategy only. Base case $3.00 (range $2.30–4.10) per delivery</small>
+      </div>
+      <div class="ctl">
+        <label for="model">Model</label>
+        <select id="model"></select>
+        <small>Risks are Platt-recalibrated on training folds, then scored on the untouched test set</small>
+      </div>
+      <div class="sim">
+        <span class="tag">SIMULATION</span>
+        <label class="check" for="simOn"><input type="checkbox" id="simOn" checked> Show a hypothetical better model</label>
+        <div class="ctl">
+          <label for="auc">Its AUC <output id="aucOut"></output></label>
+          <input type="range" id="auc" min="0.55" max="0.95" step="0.01" value="0.75">
+          <small>Idealised, perfectly calibrated binormal model at the same 1.7% prevalence. Not fitted to data.</small>
+        </div>
+      </div>
+    </form>
+
+    <div class="right">
+      <div class="stats" id="stats"></div>
+      <div class="verdict" id="verdict"></div>
+
+      <figure>
+        <figcaption><b>Net value per 1,000 deliveries</b><span>Savings from prevented readmissions minus outreach and model costs. Zero is "contact no one".</span></figcaption>
+        <div class="legend" id="legend1"></div>
+        <div class="chart" id="c1"></div>
+      </figure>
+
+      <figure>
+        <figcaption><b>What the model adds over the better no-model strategy</b><span>Shaded band: 95% bootstrap interval from the 46 test-set readmissions. Where it straddles zero, the gain is not established.</span></figcaption>
+        <div class="legend" id="legend2"></div>
+        <div class="chart" id="c2"></div>
+      </figure>
+
+      <details>
+        <summary>Table: all models at the selected cost</summary>
+        <div class="tbl"><table id="tbl"></table></div>
+      </details>
+
+      <div class="notes">
+        <p><b>How a strategy is scored.</b> Contacting one patient who would have been readmitted is worth <i>effectiveness × readmission cost</i>. The model contacts everyone whose recalibrated risk exceeds <i>contact cost ÷ that value</i>, the rational cut-off. The value of every strategy is computed from the same test-set patients.</p>
+        <p><b>Why the window sits where it does.</b> When contacting is cheap, contacting everyone wins and the model can only lose readmissions it fails to flag. When it is expensive, few patients have enough risk to justify it. A model helps most near the cost where contacting everyone and no one break even, which is prevalence × value per readmission reached.</p>
+        <p><b>Data.</b> To respect the data-use agreement, risks are grouped into four bins per model, each with at least 11 readmissions and 11 non-readmissions. The model can therefore only contact whole bins, so its curve is coarser, and its gains generally smaller, than the patient-level figures in the manuscript (<code>results/revision/economic_check.json</code>). Source: <code>results/revision/economic_bins_public.json</code>, produced by <code>src/public_bins.py</code>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+ "note": "Platt-recalibrated test-set risks in bins of >= 11 readmissions and >= 11 non-readmissions (sorted by risk); each bin: [lowest risk in bin, events, non-events]. Source: src/public_bins.py",
+ "script": "src/public_bins.py",
+ "git_hash": "00ed3cc",
+ "unit_of_analysis": "participant",
+ "n": 2633,
+ "events": 46,
+ "models": {
+  "LR_tuned": [
+   [
+    0.024715,
+    11,
+    429
+   ],
+   [
+    0.015734,
+    11,
+    498
+   ],
+   [
+    0.012956,
+    11,
+    401
+   ],
+   [
+    0.004,
+    13,
+    1259
+   ]
+  ],
+  "GB_tuned": [
+   [
+    0.020065,
+    11,
+    523
+   ],
+   [
+    0.016189,
+    11,
+    483
+   ],
+   [
+    0.014572,
+    11,
+    648
+   ],
+   [
+    0.010228,
+    13,
+    933
+   ]
+  ],
+  "Stacking_orig": [
+   [
+    0.01935,
+    11,
+    600
+   ],
+   [
+    0.016466,
+    11,
+    566
+   ],
+   [
+    0.015331,
+    11,
+    485
+   ],
+   [
+    0.010178,
+    13,
+    936
+   ]
+  ],
+  "LR_orig": [
+   [
+    0.019914,
+    11,
+    409
+   ],
+   [
+    0.017329,
+    11,
+    629
+   ],
+   [
+    0.016513,
+    11,
+    467
+   ],
+   [
+    0.000656,
+    13,
+    1082
+   ]
+  ],
+  "FLAML_tuned": [
+   [
+    0.019068,
+    11,
+    773
+   ],
+   [
+    0.014661,
+    11,
+    677
+   ],
+   [
+    0.012504,
+    11,
+    431
+   ],
+   [
+    0.00885,
+    13,
+    706
+   ]
+  ],
+  "AutoGluon": [
+   [
+    0.020428,
+    11,
+    615
+   ],
+   [
+    0.015892,
+    11,
+    676
+   ],
+   [
+    0.013069,
+    11,
+    601
+   ],
+   [
+    0.009188,
+    13,
+    695
+   ]
+  ]
+ }
+};
+const LABELS = { LR_tuned: 'Logistic regression (tuned)', GB_tuned: 'Gradient boosting (tuned)', Stacking_orig: 'Stacking ensemble',
+  LR_orig: 'Logistic regression (as submitted)', FLAML_tuned: 'FLAML (imbalance-aware)', AutoGluon: 'AutoGluon' };
+const $ = id => document.getElementById(id);
+const fmt$ = v => (v < 0 ? '−' : '') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US');
+const fmtSigned = v => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US');
+const N = DATA.n, E = DATA.events, PREV = E / N;
+const COSTS = []; for (let c = 5; c <= 400; c += 5) COSTS.push(c);
+const NBOOT = 300;
+
+// ---- normal helpers (for the SIMULATION only)
+function Phi(x) { const t = 1 / (1 + 0.2316419 * Math.abs(x)); const d = 0.3989423 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; }
+function PhiInv(p) { // Acklam
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239],
+    b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572],
+    c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783],
+    d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416]; const pl = 0.02425;
+  if (p < pl) { const q = Math.sqrt(-2 * Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if (p > 1 - pl) { const q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  const q = p - 0.5, r = q * q; return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
+function simValue(auc, cost, V) { // per patient, calibrated binormal model, contact if risk >= cost/V
+  const t = cost / V; if (t >= 1) return 0;
+  const dd = Math.SQRT2 * PhiInv(auc), lg = x => Math.log(x / (1 - x));
+  const s = (lg(t) - lg(PREV) + dd * dd / 2) / dd;
+  const tpr = 1 - Phi(s - dd), fpr = 1 - Phi(s);
+  return V * PREV * tpr - cost * (PREV * tpr + (1 - PREV) * fpr);
+}
+
+// ---- model value from bins: bins sorted by risk, descending; contact a bin if its lowest risk >= cut-off
+function cum(bins, w) { // w: optional [ev, nonev] weight arrays (bootstrap)
+  const ev = [0], ne = [0];
+  bins.forEach((b, i) => { ev.push(ev[i] + (w ? w[0][i] : b[1])); ne.push(ne[i] + (w ? w[1][i] : b[2])); });
+  return { ev, ne };
+}
+function nFlaggedBins(bins, t) { let lo = 0, hi = bins.length; while (lo < hi) { const m = (lo + hi) >> 1; if (bins[m][0] >= t) lo = m + 1; else hi = m; } return lo; }
+function poisson(l, rnd) { let L = Math.exp(-l), k = 0, p = 1; do { k++; p *= rnd(); } while (p > L); return k - 1; }
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+const boots = {};
+function getBoots(m) {
+  if (boots[m]) return boots[m];
+  const bins = DATA.models[m], rnd = mulberry(42), reps = [];
+  for (let r = 0; r < NBOOT; r++) {
+    const w = [bins.map(b => poisson(b[1], rnd)), bins.map(b => poisson(b[2], rnd))];
+    reps.push(cum(bins, w));
+  }
+  return (boots[m] = { point: cum(bins), reps });
+}
+function evalAt(m, cost, V, impl) { // per 1,000 deliveries
+  const bins = DATA.models[m], B = getBoots(m), t = cost / V, k = nFlaggedBins(bins, t);
+  const score = c => { const n = c.ev[c.ev.length - 1] + c.ne[c.ne.length - 1]; if (!n) return [0, 0, 0];
+    const tp = c.ev[k], fl = tp + c.ne[k];
+    const model = (V * tp - cost * fl) / n - (k > 0 ? impl : 0);
+    const all = (V * c.ev[c.ev.length - 1] - cost * n) / n;
+    return [model * 1000, all * 1000, (model - Math.max(all, 0)) * 1000]; };
+  const [model, all, gain] = score(B.point);
+  const g = B.reps.map(c => score(c)[2]).sort((a, b) => a - b);
+  const tp = B.point.ev[k], fl = tp + B.point.ne[k];
+  return { model, all, gain, lo: g[Math.floor(0.025 * NBOOT)], hi: g[Math.ceil(0.975 * NBOOT) - 1],
+    flagged: fl / N, reached: tp, nns: tp ? fl / tp : Infinity, cut: t, k };
+}
+
+// ---- tiny SVG chart with crosshair
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function niceTicks(lo, hi, n) { const span = hi - lo || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || 10 * mag;
+  const ticks = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(+v.toFixed(6)); return ticks; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function drawChart(host, series, opts) {
+  host.innerHTML = '';
+  const W = 720, H = 300, M = { l: 66, r: 14, t: 12, b: 34 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria }, host);
+  const xs = COSTS, x0 = 0, x1 = 400;
+  let ys = []; series.forEach(s => !s.noRange && s.y.forEach(v => isFinite(v) && ys.push(v))); (opts.band || []).forEach(b => ys.push(b[0], b[1]));
+  ys.push(0); let lo = Math.min(...ys), hi = Math.max(...ys);
+  const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+  const X = v => M.l + (v - x0) / (x1 - x0) * (W - M.l - M.r), Y = v => M.t + (hi - v) / (hi - lo) * (H - M.t - M.b);
+  const cid = 'clip' + host.id, defs = el('defs', {}, svg), cp = el('clipPath', { id: cid }, defs);
+  el('rect', { x: M.l, y: M.t, width: W - M.l - M.r, height: H - M.t - M.b }, cp);
+  const g = el('g', {}, svg), plot = el('g', { 'clip-path': `url(#${cid})` }, svg);
+  niceTicks(lo, hi, 5).forEach(t => { el('line', { x1: M.l, x2: W - M.r, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }, g);
+    const tx = el('text', { x: M.l - 8, y: Y(t) + 4, 'text-anchor': 'end' }, g); tx.textContent = fmt$(t); });
+  [0, 50, 100, 150, 200, 250, 300, 350, 400].forEach(t => { const tx = el('text', { x: X(t), y: H - 12, 'text-anchor': 'middle' }, g); tx.textContent = '$' + t; });
+  const xl = el('text', { x: W - M.r, y: H - 0, 'text-anchor': 'end' }, g); xl.textContent = 'cost per patient contacted';
+  if (opts.window) opts.window.forEach(([a, b]) => el('rect', { x: X(a), y: M.t, width: Math.max(1, X(b) - X(a)), height: H - M.t - M.b, fill: css('--model-wash') }, g));
+  if (opts.band) { const pts = opts.band.map((b, i) => `${X(xs[i])},${Y(b[1])}`).concat(opts.band.map((b, i) => `${X(xs[i])},${Y(b[0])}`).reverse());
+    el('polygon', { points: pts.join(' '), fill: css('--model-wash'), stroke: 'none' }, g); }
+  el('line', { x1: M.l, x2: W - M.r, y1: Y(0), y2: Y(0), stroke: css('--axis'), 'stroke-width': 1.5 }, g);
+  series.forEach(s => el('polyline', { points: s.y.map((v, i) => `${X(xs[i])},${Y(v)}`).join(' '), fill: 'none', stroke: css(s.color),
+    'stroke-width': 2, 'stroke-dasharray': s.dash || '', 'stroke-linejoin': 'round' }, plot));
+  // marker at the selected cost
+  el('line', { x1: X(opts.cost), x2: X(opts.cost), y1: M.t, y2: H - M.b, stroke: css('--ink-2'), 'stroke-width': 1, 'stroke-dasharray': '2 3' }, g);
+  series.forEach(s => { const i = COSTS.indexOf(opts.cost); if (i >= 0) el('circle', { cx: X(opts.cost), cy: Y(s.y[i]), r: 4.5, fill: css(s.color), stroke: css('--surface'), 'stroke-width': 2 }, plot); });
+  // crosshair + tooltip
+  const cross = el('line', { y1: M.t, y2: H - M.b, stroke: css('--muted'), 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const hit = el('rect', { x: M.l, y: M.t, width: W - M.l - M.r, height: H - M.t - M.b, fill: 'transparent', tabindex: 0 }, svg);
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; host.appendChild(tip);
+  function show(i) {
+    cross.setAttribute('x1', X(xs[i])); cross.setAttribute('x2', X(xs[i])); cross.setAttribute('visibility', 'visible');
+    tip.replaceChildren(); const h = document.createElement('div'); h.style.marginBottom = '4px'; h.style.color = css('--ink-2');
+    h.textContent = `$${xs[i]} per contact`; tip.appendChild(h);
+    series.forEach(s => { const r = document.createElement('div'); r.className = 'row'; const k = document.createElement('i'); k.style.borderTopColor = css(s.color);
+      if (s.dash) k.style.borderTopStyle = 'dashed'; const n = document.createElement('span'); n.textContent = s.name; const v = document.createElement('strong'); v.textContent = fmtSigned(s.y[i]);
+      r.append(k, n, v); tip.appendChild(r); });
+    if (opts.band) { const r = document.createElement('div'); r.className = 'row'; const n = document.createElement('span'); n.textContent = '95% interval';
+      const v = document.createElement('strong'); v.textContent = `${fmtSigned(opts.band[i][0])} to ${fmtSigned(opts.band[i][1])}`; r.append(n, v); tip.appendChild(r); }
+    tip.hidden = false; const bx = host.getBoundingClientRect(), px = X(xs[i]) / W * bx.width;
+    tip.style.left = Math.min(Math.max(0, px + 12), bx.width - tip.offsetWidth) + 'px'; tip.style.top = '8px';
+  }
+  hit.addEventListener('pointermove', e => { const b = svg.getBoundingClientRect(), vx = (e.clientX - b.left) / b.width * W;
+    const c = x0 + (vx - M.l) / (W - M.l - M.r) * (x1 - x0); let i = Math.round((c - 5) / 5); i = Math.max(0, Math.min(COSTS.length - 1, i)); show(i); });
+  hit.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+  hit.addEventListener('focus', () => show(COSTS.indexOf(opts.cost)));
+  hit.addEventListener('blur', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+}
+function legend(host, items) { host.replaceChildren(...items.map(([name, color, dash]) => { const s = document.createElement('span');
+  const i = document.createElement('i'); i.style.borderTopColor = css(color); if (dash) i.style.borderTopStyle = 'dashed'; s.append(i, document.createTextNode(name)); return s; })); }
+
+function stat(k, v, s) { const d = document.createElement('div'); d.className = 'stat';
+  [['k', k], ['v', v], ['s', s]].forEach(([c, t]) => { const e = document.createElement('div'); e.className = c; e.textContent = t; d.appendChild(e); }); return d; }
+
+function render() {
+  const cost = +$('cost').value, eff = +$('eff').value / 100, rc = +$('rc').value, impl = +$('impl').value, m = $('model').value;
+  const simOn = $('simOn').checked, auc = +$('auc').value, V = eff * rc;
+  $('costOut').textContent = '$' + cost; $('effOut').textContent = Math.round(eff * 100) + '%'; $('rcOut').textContent = fmt$(rc);
+  $('implOut').textContent = '$' + impl.toFixed(2); $('aucOut').textContent = auc.toFixed(2); $('auc').disabled = !simOn;
+  const rows = COSTS.map(c => evalAt(m, c, V, impl)), cur = evalAt(m, cost, V, impl);
+  const sim = COSTS.map(c => (simValue(auc, c, V) - impl) * 1000);
+  const simGain = COSTS.map((c, i) => sim[i] - Math.max(rows[i].all, 0));
+  const win = []; let a = null; rows.forEach((r, i) => { if (r.gain > 0 && a === null) a = COSTS[i] - 2.5; if ((r.gain <= 0 || i === rows.length - 1) && a !== null) { win.push([a, COSTS[i] - 2.5]); a = null; } });
+  const bestAll = cur.all > 0; const breakEven = PREV * V;
+  $('stats').replaceChildren(
+    stat('Risk cut-off', (cur.cut * 100).toFixed(2) + '%', 'contact if predicted risk is at least this'),
+    stat('Contacted by the model', (cur.flagged * 100).toFixed(1) + '%', cur.reached + ' of ' + E + ' readmissions reached'),
+    stat('Better no-model strategy', bestAll ? 'Contact all' : 'Contact none', fmtSigned(Math.max(cur.all, 0)) + ' per 1,000 deliveries'),
+    stat('Model adds', fmtSigned(cur.gain), `95% interval ${fmtSigned(cur.lo)} to ${fmtSigned(cur.hi)} per 1,000`));
+  const v = $('verdict'); v.replaceChildren(); const pill = document.createElement('span');
+  const state = cur.lo > 0 ? ['good', 'Gain established'] : cur.hi < 0 ? ['bad', 'Model loses money'] : ['flat', 'Gain not established'];
+  pill.className = 'pill ' + state[0]; pill.textContent = state[1]; v.appendChild(pill);
+  const txt = document.createElement('span');
+  txt.textContent = `At $${cost} per contact, ${bestAll ? 'contacting every patient' : 'contacting no one'} is the strategy to beat. ` +
+    `The two break even at about $${Math.round(breakEven)} per contact, which is where any model has the most room to help.` +
+    (simOn ? ` The simulated AUC ${auc.toFixed(2)} model would add ${fmtSigned(simGain[COSTS.indexOf(cost)])} here.` : '');
+  v.appendChild(txt);
+  const s1 = [{ name: LABELS[m], y: rows.map(r => r.model), color: '--model' }, { name: 'Contact all', y: rows.map(r => r.all), color: '--all', noRange: true }];
+  if (simOn) s1.push({ name: `Simulated AUC ${auc.toFixed(2)}`, y: sim, color: '--sim', dash: '6 4' });
+  legend($('legend1'), s1.map(s => [s.name, s.color, s.dash]).concat([['Contact none (zero line)', '--axis']]));
+  drawChart($('c1'), s1, { cost, window: win, aria: 'Net value per 1,000 deliveries by cost per contact' });
+  const s2 = [{ name: LABELS[m], y: rows.map(r => r.gain), color: '--model' }];
+  if (simOn) s2.push({ name: `Simulated AUC ${auc.toFixed(2)}`, y: simGain, color: '--sim', dash: '6 4' });
+  legend($('legend2'), s2.map(s => [s.name, s.color, s.dash]));
+  drawChart($('c2'), s2, { cost, band: rows.map(r => [r.lo, r.hi]), aria: 'Gain of the model over the better no-model strategy' });
+  // table
+  const t = $('tbl'); t.replaceChildren(); const hr = t.insertRow();
+  ['Model', 'Contacted', 'Readmissions reached', 'Model value / 1,000', 'Adds over best default', '95% interval'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+  Object.keys(DATA.models).forEach(k => { const r = evalAt(k, cost, V, impl), tr = t.insertRow();
+    [LABELS[k], (r.flagged * 100).toFixed(1) + '%', r.reached + ' / ' + E, fmtSigned(r.model), fmtSigned(r.gain), `${fmtSigned(r.lo)} to ${fmtSigned(r.hi)}`]
+      .forEach(x => { tr.insertCell().textContent = x; }); });
+}
+
+Object.keys(DATA.models).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = LABELS[k]; $('model').appendChild(o); });
+['cost', 'eff', 'rc', 'impl', 'model', 'simOn', 'auc'].forEach(id => $(id).addEventListener('input', render));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+render();
+</script>
