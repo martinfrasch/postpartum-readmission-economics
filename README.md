@@ -2,6 +2,8 @@
 
 An interactive explorer of the health-economic analysis in *Predicting postpartum readmission from sociodemographic data* (nuMoM2b cohort; manuscript under review at *Machine Learning: Health*).
 
+**Preprint:** [medRxiv 2025.12.16.25342440](https://doi.org/10.1101/2025.12.16.25342440). The link resolves to the latest version; the revised manuscript will be posted there.
+
 **Live page:** https://martinfrasch.github.io/postpartum-readmission-economics/
 
 A risk model earns money only when it beats the two strategies that need no model: contact every new mother after discharge, or contact none. The page lets you vary the cost of one contact, the share of readmissions a contact prevents, the cost of a readmission and the model's running cost, and shows where, if anywhere, acting on a model's predictions adds value.
