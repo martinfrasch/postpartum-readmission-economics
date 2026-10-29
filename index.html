@@ -81,6 +81,11 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10p
 th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--ink-2); font-weight: 500; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 500 12px var(--f-body); padding: 5px 8px; border-radius: 6px; border: 1px solid var(--axis); background: var(--bg); color: var(--ink); cursor: pointer; }
+.btns button:hover { border-color: var(--model); }
+.btns button[disabled] { opacity: .5; cursor: default; }
+.chart { position: relative; }
 .notes { color: var(--ink-2); font-size: 13px; max-width: 80ch; display: grid; gap: 6px; }
 .notes p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -98,6 +103,12 @@ th { color: var(--ink-2); font-weight: 500; }
 
   <div class="main">
     <form class="panel" id="controls" onsubmit="return false">
+      <div class="ctl">
+        <label for="pop">Population</label>
+        <select id="pop"></select>
+        <small id="popNote"></small>
+        <div class="btns" id="priceBtns"></div>
+      </div>
       <div class="ctl">
         <label for="cost">Cost per patient contacted <output id="costOut"></output></label>
         <input type="range" id="cost" min="5" max="400" step="5" value="50">
@@ -150,6 +161,17 @@ th { color: var(--ink-2); font-weight: 500; }
         <div class="chart" id="c2"></div>
       </figure>
 
+      <figure>
+        <figcaption><b>Across states: does contacting every mother pay at Medicaid's price?</b><span>Post hoc. Each dot is a state: the nuMoM2b test set reweighted to that state's first births. Break-even = readmission rate × effectiveness × readmission cost. Above the diagonal, a home visit for every mother at that state's Medicaid price pays for itself; a model can only help close to the line. Hollow dots use the national price (state has too few claims). Click a dot to select the state.</span></figcaption>
+        <div class="legend" id="legend3"></div>
+        <div class="chart" id="c3"></div>
+      </figure>
+
+      <details>
+        <summary>Table: all states at the current settings</summary>
+        <div class="tbl"><table id="stbl"></table></div>
+      </details>
+
       <details>
         <summary>Table: all models at the selected cost</summary>
         <div class="tbl"><table id="tbl"></table></div>
@@ -158,7 +180,8 @@ th { color: var(--ink-2); font-weight: 500; }
       <div class="notes">
         <p><b>How a strategy is scored.</b> Contacting one patient who would have been readmitted is worth <i>effectiveness × readmission cost</i>. The model contacts everyone whose recalibrated risk exceeds <i>contact cost ÷ that value</i>, the rational cut-off. The value of every strategy is computed from the same test-set patients.</p>
         <p><b>Why the window sits where it does.</b> When contacting is cheap, contacting everyone wins and the model can only lose readmissions it fails to flag. When it is expensive, few patients have enough risk to justify it. A model helps most near the cost where contacting everyone and no one break even, which is prevalence × value per readmission reached.</p>
-        <p><b>Data.</b> To respect the data-use agreement, risks are grouped into four bins per model, each with at least 11 readmissions and 11 non-readmissions. The model can therefore only contact whole bins, so its curve is coarser, and its gains generally smaller, than the patient-level figures in the manuscript (<code>results/revision/economic_check.json</code>). Source: <code>results/revision/economic_bins_public.json</code>, produced by <code>src/public_bins.py</code>.</p>
+        <p><b>States (post hoc, exploratory).</b> nuMoM2b recruited at eight US centres and has no state variable. For each state, test-set participants are reweighted (raking) so that their race and ethnicity, Medicaid coverage, education, BMI and age match that state's first births in 2022–24 (CDC WONDER). This assumes that readmission risk given these characteristics is the same everywhere; it captures differences in who gives birth, not in how care is delivered. To keep every published count at 11 or more, only state-level summaries are published: the curves for a state scale the test-set readmission rates to that state's reweighted rate and keep the model's ranking as in the test set, so they show how the economics shift with the state's readmission rate and prices, not with its AUC (shown separately). Intervals for a state are approximate: resampling is scaled to its effective sample size. West Virginia is omitted (fewer than 11 effective readmissions). Medicaid prices are amounts paid per claim line in 2022–23 (T-MSIS), for a home visit (CPT 99347–99350) and a physician telephone call (99441–99443); states with fewer than 1,000 claim lines use the national mean.</p>
+        <p><b>Data.</b> To respect the data-use agreement, risks are grouped into four bins per model, each with at least 11 readmissions and 11 non-readmissions. The model contacts a whole bin when the bin's average predicted risk reaches the cut-off, so its curve is a coarse step function and differs from the patient-level figures in the manuscript (<code>results/revision/economic_check.json</code>). Source: <code>results/revision/economic_bins_public.json</code>, produced by <code>src/public_bins.py</code>.</p>
       </div>
     </div>
   </div>
@@ -166,153 +189,1147 @@ th { color: var(--ink-2); font-weight: 500; }
 
 <script>
 const DATA = {
- "note": "Platt-recalibrated test-set risks in bins of >= 11 readmissions and >= 11 non-readmissions (sorted by risk); each bin: [lowest risk in bin, events, non-events]. Source: src/public_bins.py",
+ "note": "Platt-recalibrated test-set risks in bins of >= 11 readmissions and >= 11 non-readmissions (sorted by risk); each bin: [mean predicted risk in bin, events, non-events]. Source: src/public_bins.py",
  "script": "src/public_bins.py",
- "git_hash": "00ed3cc",
+ "git_hash": "3356eea",
  "unit_of_analysis": "participant",
  "n": 2633,
  "events": 46,
  "models": {
   "LR_tuned": [
    [
-    0.024715,
+    0.039413,
     11,
     429
    ],
    [
-    0.015734,
+    0.019737,
     11,
     498
    ],
    [
-    0.012956,
+    0.014027,
     11,
     401
    ],
    [
-    0.004,
+    0.011045,
     13,
     1259
    ]
   ],
   "GB_tuned": [
    [
-    0.020065,
+    0.028511,
     11,
     523
    ],
    [
-    0.016189,
+    0.018095,
     11,
     483
    ],
    [
-    0.014572,
+    0.015543,
     11,
     648
    ],
    [
-    0.010228,
+    0.011872,
     13,
     933
    ]
   ],
   "Stacking_orig": [
    [
-    0.01935,
+    0.02178,
     11,
     600
    ],
    [
-    0.016466,
+    0.017883,
     11,
     566
    ],
    [
-    0.015331,
+    0.015767,
     11,
     485
    ],
    [
-    0.010178,
+    0.014133,
     13,
     936
    ]
   ],
   "LR_orig": [
    [
-    0.019914,
+    0.023508,
     11,
     409
    ],
    [
-    0.017329,
+    0.018369,
     11,
     629
    ],
    [
-    0.016513,
+    0.016921,
     11,
     467
    ],
    [
-    0.000656,
+    0.014698,
     13,
     1082
    ]
   ],
   "FLAML_tuned": [
    [
-    0.019068,
+    0.026867,
     11,
     773
    ],
    [
-    0.014661,
+    0.016692,
     11,
     677
    ],
    [
-    0.012504,
+    0.01358,
     11,
     431
    ],
    [
-    0.00885,
+    0.010939,
     13,
     706
    ]
   ],
   "AutoGluon": [
    [
-    0.020428,
+    0.025529,
     11,
     615
    ],
    [
-    0.015892,
+    0.01793,
     11,
     676
    ],
    [
-    0.013069,
+    0.014436,
     11,
     601
    ],
    [
-    0.009188,
+    0.011659,
     13,
     695
    ]
   ]
- }
+ },
+ "states": {
+  "US": {
+   "births": 4217557,
+   "medicaid_share": 0.345,
+   "ess": 1860,
+   "prevalence": 0.0198,
+   "prevalence_ci95": [
+    0.0135,
+    0.0267
+   ],
+   "auc_lr": 0.63,
+   "auc_lr_ci95": [
+    0.544,
+    0.712
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "AK": {
+   "births": 9549,
+   "medicaid_share": 0.2761,
+   "ess": 670,
+   "prevalence": 0.0143,
+   "prevalence_ci95": [
+    0.0088,
+    0.0207
+   ],
+   "auc_lr": 0.531,
+   "auc_lr_ci95": [
+    0.444,
+    0.623
+   ],
+   "price_home": 45.15,
+   "price_home_is_state": true,
+   "price_phone": 585.89,
+   "price_phone_is_state": true
+  },
+  "AL": {
+   "births": 66102,
+   "medicaid_share": 0.3762,
+   "ess": 1390,
+   "prevalence": 0.0185,
+   "prevalence_ci95": [
+    0.0115,
+    0.0255
+   ],
+   "auc_lr": 0.616,
+   "auc_lr_ci95": [
+    0.504,
+    0.726
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "AR": {
+   "births": 39647,
+   "medicaid_share": 0.3523,
+   "ess": 1340,
+   "prevalence": 0.0176,
+   "prevalence_ci95": [
+    0.0108,
+    0.0237
+   ],
+   "auc_lr": 0.595,
+   "auc_lr_ci95": [
+    0.481,
+    0.7
+   ],
+   "price_home": 17.2,
+   "price_home_is_state": true,
+   "price_phone": 20.41,
+   "price_phone_is_state": true
+  },
+  "AZ": {
+   "births": 88942,
+   "medicaid_share": 0.3828,
+   "ess": 1230,
+   "prevalence": 0.0239,
+   "prevalence_ci95": [
+    0.0143,
+    0.035
+   ],
+   "auc_lr": 0.64,
+   "auc_lr_ci95": [
+    0.544,
+    0.712
+   ],
+   "price_home": 39.66,
+   "price_home_is_state": true,
+   "price_phone": 59.44,
+   "price_phone_is_state": true
+  },
+  "CA": {
+   "births": 486423,
+   "medicaid_share": 0.3272,
+   "ess": 910,
+   "prevalence": 0.0228,
+   "prevalence_ci95": [
+    0.0135,
+    0.0333
+   ],
+   "auc_lr": 0.667,
+   "auc_lr_ci95": [
+    0.543,
+    0.747
+   ],
+   "price_home": 57.64,
+   "price_home_is_state": true,
+   "price_phone": 97.99,
+   "price_phone_is_state": true
+  },
+  "CO": {
+   "births": 78979,
+   "medicaid_share": 0.2826,
+   "ess": 1890,
+   "prevalence": 0.0189,
+   "prevalence_ci95": [
+    0.0134,
+    0.0247
+   ],
+   "auc_lr": 0.619,
+   "auc_lr_ci95": [
+    0.526,
+    0.692
+   ],
+   "price_home": 47.94,
+   "price_home_is_state": true,
+   "price_phone": 23.19,
+   "price_phone_is_state": true
+  },
+  "CT": {
+   "births": 42045,
+   "medicaid_share": 0.3262,
+   "ess": 2040,
+   "prevalence": 0.0191,
+   "prevalence_ci95": [
+    0.014,
+    0.0254
+   ],
+   "auc_lr": 0.63,
+   "auc_lr_ci95": [
+    0.545,
+    0.709
+   ],
+   "price_home": 33.28,
+   "price_home_is_state": true,
+   "price_phone": 21.75,
+   "price_phone_is_state": true
+  },
+  "DC": {
+   "births": 10427,
+   "medicaid_share": 0.3207,
+   "ess": 840,
+   "prevalence": 0.0208,
+   "prevalence_ci95": [
+    0.0134,
+    0.0316
+   ],
+   "auc_lr": 0.647,
+   "auc_lr_ci95": [
+    0.53,
+    0.749
+   ],
+   "price_home": 28.74,
+   "price_home_is_state": true,
+   "price_phone": 62.39,
+   "price_phone_is_state": true
+  },
+  "DE": {
+   "births": 12425,
+   "medicaid_share": 0.3541,
+   "ess": 1740,
+   "prevalence": 0.0208,
+   "prevalence_ci95": [
+    0.0141,
+    0.0283
+   ],
+   "auc_lr": 0.627,
+   "auc_lr_ci95": [
+    0.544,
+    0.717
+   ],
+   "price_home": 33.64,
+   "price_home_is_state": true,
+   "price_phone": 32.5,
+   "price_phone_is_state": true
+  },
+  "FL": {
+   "births": 273185,
+   "medicaid_share": 0.349,
+   "ess": 1420,
+   "prevalence": 0.0218,
+   "prevalence_ci95": [
+    0.0143,
+    0.0299
+   ],
+   "auc_lr": 0.628,
+   "auc_lr_ci95": [
+    0.535,
+    0.712
+   ],
+   "price_home": 15.81,
+   "price_home_is_state": true,
+   "price_phone": 18.52,
+   "price_phone_is_state": true
+  },
+  "GA": {
+   "births": 153413,
+   "medicaid_share": 0.3981,
+   "ess": 1460,
+   "prevalence": 0.0203,
+   "prevalence_ci95": [
+    0.0134,
+    0.0277
+   ],
+   "auc_lr": 0.628,
+   "auc_lr_ci95": [
+    0.534,
+    0.727
+   ],
+   "price_home": 44.86,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "HI": {
+   "births": 17531,
+   "medicaid_share": 0.2594,
+   "ess": 450,
+   "prevalence": 0.0159,
+   "prevalence_ci95": [
+    0.0079,
+    0.0246
+   ],
+   "auc_lr": 0.604,
+   "auc_lr_ci95": [
+    0.542,
+    0.681
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 88.3,
+   "price_phone_is_state": true
+  },
+  "IA": {
+   "births": 38612,
+   "medicaid_share": 0.3201,
+   "ess": 1550,
+   "prevalence": 0.0159,
+   "prevalence_ci95": [
+    0.0109,
+    0.0215
+   ],
+   "auc_lr": 0.581,
+   "auc_lr_ci95": [
+    0.481,
+    0.673
+   ],
+   "price_home": 69.35,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "ID": {
+   "births": 24602,
+   "medicaid_share": 0.2604,
+   "ess": 1350,
+   "prevalence": 0.0148,
+   "prevalence_ci95": [
+    0.0098,
+    0.0202
+   ],
+   "auc_lr": 0.586,
+   "auc_lr_ci95": [
+    0.477,
+    0.68
+   ],
+   "price_home": 42.71,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "IL": {
+   "births": 144877,
+   "medicaid_share": 0.3252,
+   "ess": 1940,
+   "prevalence": 0.02,
+   "prevalence_ci95": [
+    0.0139,
+    0.0273
+   ],
+   "auc_lr": 0.624,
+   "auc_lr_ci95": [
+    0.536,
+    0.708
+   ],
+   "price_home": 47.88,
+   "price_home_is_state": true,
+   "price_phone": 27.84,
+   "price_phone_is_state": true
+  },
+  "IN": {
+   "births": 86961,
+   "medicaid_share": 0.3607,
+   "ess": 1420,
+   "prevalence": 0.0168,
+   "prevalence_ci95": [
+    0.0112,
+    0.0225
+   ],
+   "auc_lr": 0.604,
+   "auc_lr_ci95": [
+    0.503,
+    0.693
+   ],
+   "price_home": 29.8,
+   "price_home_is_state": true,
+   "price_phone": 16.93,
+   "price_phone_is_state": true
+  },
+  "KS": {
+   "births": 37097,
+   "medicaid_share": 0.2734,
+   "ess": 1610,
+   "prevalence": 0.0192,
+   "prevalence_ci95": [
+    0.0124,
+    0.026
+   ],
+   "auc_lr": 0.592,
+   "auc_lr_ci95": [
+    0.493,
+    0.678
+   ],
+   "price_home": 17.14,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "KY": {
+   "births": 58636,
+   "medicaid_share": 0.3843,
+   "ess": 1170,
+   "prevalence": 0.0149,
+   "prevalence_ci95": [
+    0.0096,
+    0.0211
+   ],
+   "auc_lr": 0.596,
+   "auc_lr_ci95": [
+    0.475,
+    0.697
+   ],
+   "price_home": 31.86,
+   "price_home_is_state": true,
+   "price_phone": 39.77,
+   "price_phone_is_state": true
+  },
+  "LA": {
+   "births": 60101,
+   "medicaid_share": 0.5768,
+   "ess": 1120,
+   "prevalence": 0.0202,
+   "prevalence_ci95": [
+    0.0122,
+    0.0304
+   ],
+   "auc_lr": 0.653,
+   "auc_lr_ci95": [
+    0.517,
+    0.769
+   ],
+   "price_home": 58.37,
+   "price_home_is_state": true,
+   "price_phone": 1.5,
+   "price_phone_is_state": true
+  },
+  "MA": {
+   "births": 86812,
+   "medicaid_share": 0.2561,
+   "ess": 1920,
+   "prevalence": 0.0179,
+   "prevalence_ci95": [
+    0.013,
+    0.024
+   ],
+   "auc_lr": 0.63,
+   "auc_lr_ci95": [
+    0.544,
+    0.703
+   ],
+   "price_home": 349.7,
+   "price_home_is_state": true,
+   "price_phone": 28.32,
+   "price_phone_is_state": true
+  },
+  "MD": {
+   "births": 76273,
+   "medicaid_share": 0.3417,
+   "ess": 1760,
+   "prevalence": 0.0206,
+   "prevalence_ci95": [
+    0.0151,
+    0.0275
+   ],
+   "auc_lr": 0.633,
+   "auc_lr_ci95": [
+    0.552,
+    0.713
+   ],
+   "price_home": 26.8,
+   "price_home_is_state": true,
+   "price_phone": 51.33,
+   "price_phone_is_state": true
+  },
+  "ME": {
+   "births": 14544,
+   "medicaid_share": 0.3044,
+   "ess": 1280,
+   "prevalence": 0.0128,
+   "prevalence_ci95": [
+    0.0081,
+    0.0185
+   ],
+   "auc_lr": 0.57,
+   "auc_lr_ci95": [
+    0.426,
+    0.688
+   ],
+   "price_home": 18.99,
+   "price_home_is_state": true,
+   "price_phone": 26.94,
+   "price_phone_is_state": true
+  },
+  "MI": {
+   "births": 113973,
+   "medicaid_share": 0.3141,
+   "ess": 1660,
+   "prevalence": 0.0147,
+   "prevalence_ci95": [
+    0.0099,
+    0.0192
+   ],
+   "auc_lr": 0.604,
+   "auc_lr_ci95": [
+    0.498,
+    0.704
+   ],
+   "price_home": 44.54,
+   "price_home_is_state": true,
+   "price_phone": 52.2,
+   "price_phone_is_state": true
+  },
+  "MN": {
+   "births": 67047,
+   "medicaid_share": 0.2627,
+   "ess": 2100,
+   "prevalence": 0.0156,
+   "prevalence_ci95": [
+    0.0111,
+    0.0206
+   ],
+   "auc_lr": 0.585,
+   "auc_lr_ci95": [
+    0.502,
+    0.669
+   ],
+   "price_home": 86.88,
+   "price_home_is_state": true,
+   "price_phone": 220.39,
+   "price_phone_is_state": true
+  },
+  "MO": {
+   "births": 75756,
+   "medicaid_share": 0.3459,
+   "ess": 1640,
+   "prevalence": 0.0153,
+   "prevalence_ci95": [
+    0.0103,
+    0.0204
+   ],
+   "auc_lr": 0.595,
+   "auc_lr_ci95": [
+    0.485,
+    0.695
+   ],
+   "price_home": 37.02,
+   "price_home_is_state": true,
+   "price_phone": 18.54,
+   "price_phone_is_state": true
+  },
+  "MS": {
+   "births": 38393,
+   "medicaid_share": 0.5297,
+   "ess": 1040,
+   "prevalence": 0.0196,
+   "prevalence_ci95": [
+    0.0113,
+    0.0298
+   ],
+   "auc_lr": 0.648,
+   "auc_lr_ci95": [
+    0.495,
+    0.775
+   ],
+   "price_home": 32.6,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "MT": {
+   "births": 13215,
+   "medicaid_share": 0.2677,
+   "ess": 1270,
+   "prevalence": 0.0126,
+   "prevalence_ci95": [
+    0.0081,
+    0.0177
+   ],
+   "auc_lr": 0.535,
+   "auc_lr_ci95": [
+    0.417,
+    0.64
+   ],
+   "price_home": 40.13,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "NC": {
+   "births": 143733,
+   "medicaid_share": 0.3139,
+   "ess": 2040,
+   "prevalence": 0.019,
+   "prevalence_ci95": [
+    0.0131,
+    0.0249
+   ],
+   "auc_lr": 0.614,
+   "auc_lr_ci95": [
+    0.536,
+    0.7
+   ],
+   "price_home": 25.23,
+   "price_home_is_state": true,
+   "price_phone": 40.16,
+   "price_phone_is_state": true
+  },
+  "ND": {
+   "births": 10126,
+   "medicaid_share": 0.1866,
+   "ess": 1400,
+   "prevalence": 0.0153,
+   "prevalence_ci95": [
+    0.0102,
+    0.0206
+   ],
+   "auc_lr": 0.532,
+   "auc_lr_ci95": [
+    0.441,
+    0.623
+   ],
+   "price_home": 45.57,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "NE": {
+   "births": 25313,
+   "medicaid_share": 0.3178,
+   "ess": 2010,
+   "prevalence": 0.0176,
+   "prevalence_ci95": [
+    0.0124,
+    0.0229
+   ],
+   "auc_lr": 0.597,
+   "auc_lr_ci95": [
+    0.507,
+    0.679
+   ],
+   "price_home": 16.51,
+   "price_home_is_state": true,
+   "price_phone": 11.09,
+   "price_phone_is_state": true
+  },
+  "NH": {
+   "births": 15184,
+   "medicaid_share": 0.1548,
+   "ess": 1530,
+   "prevalence": 0.0135,
+   "prevalence_ci95": [
+    0.0089,
+    0.0186
+   ],
+   "auc_lr": 0.567,
+   "auc_lr_ci95": [
+    0.457,
+    0.662
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 3.45,
+   "price_phone_is_state": true
+  },
+  "NJ": {
+   "births": 121580,
+   "medicaid_share": 0.2396,
+   "ess": 1550,
+   "prevalence": 0.0196,
+   "prevalence_ci95": [
+    0.0136,
+    0.0268
+   ],
+   "auc_lr": 0.64,
+   "auc_lr_ci95": [
+    0.542,
+    0.718
+   ],
+   "price_home": 15.59,
+   "price_home_is_state": true,
+   "price_phone": 29.17,
+   "price_phone_is_state": true
+  },
+  "NM": {
+   "births": 24224,
+   "medicaid_share": 0.4968,
+   "ess": 870,
+   "prevalence": 0.0274,
+   "prevalence_ci95": [
+    0.017,
+    0.0395
+   ],
+   "auc_lr": 0.644,
+   "auc_lr_ci95": [
+    0.547,
+    0.723
+   ],
+   "price_home": 83.23,
+   "price_home_is_state": true,
+   "price_phone": 79.39,
+   "price_phone_is_state": true
+  },
+  "NV": {
+   "births": 36508,
+   "medicaid_share": 0.347,
+   "ess": 1070,
+   "prevalence": 0.0228,
+   "prevalence_ci95": [
+    0.0134,
+    0.0333
+   ],
+   "auc_lr": 0.652,
+   "auc_lr_ci95": [
+    0.55,
+    0.729
+   ],
+   "price_home": 90.97,
+   "price_home_is_state": true,
+   "price_phone": 24.88,
+   "price_phone_is_state": true
+  },
+  "NY": {
+   "births": 243672,
+   "medicaid_share": 0.4001,
+   "ess": 1650,
+   "prevalence": 0.0175,
+   "prevalence_ci95": [
+    0.0128,
+    0.0234
+   ],
+   "auc_lr": 0.657,
+   "auc_lr_ci95": [
+    0.572,
+    0.735
+   ],
+   "price_home": 47.67,
+   "price_home_is_state": true,
+   "price_phone": 54.83,
+   "price_phone_is_state": true
+  },
+  "OH": {
+   "births": 140407,
+   "medicaid_share": 0.318,
+   "ess": 1470,
+   "prevalence": 0.0153,
+   "prevalence_ci95": [
+    0.0102,
+    0.0203
+   ],
+   "auc_lr": 0.599,
+   "auc_lr_ci95": [
+    0.489,
+    0.694
+   ],
+   "price_home": 33.3,
+   "price_home_is_state": true,
+   "price_phone": 13.23,
+   "price_phone_is_state": true
+  },
+  "OK": {
+   "births": 52617,
+   "medicaid_share": 0.451,
+   "ess": 990,
+   "prevalence": 0.0171,
+   "prevalence_ci95": [
+    0.011,
+    0.0239
+   ],
+   "auc_lr": 0.56,
+   "auc_lr_ci95": [
+    0.461,
+    0.667
+   ],
+   "price_home": 44.89,
+   "price_home_is_state": true,
+   "price_phone": 55.79,
+   "price_phone_is_state": true
+  },
+  "OR": {
+   "births": 47004,
+   "medicaid_share": 0.3696,
+   "ess": 1630,
+   "prevalence": 0.016,
+   "prevalence_ci95": [
+    0.0111,
+    0.0211
+   ],
+   "auc_lr": 0.606,
+   "auc_lr_ci95": [
+    0.513,
+    0.684
+   ],
+   "price_home": 56.6,
+   "price_home_is_state": true,
+   "price_phone": 31.15,
+   "price_phone_is_state": true
+  },
+  "PA": {
+   "births": 146741,
+   "medicaid_share": 0.2872,
+   "ess": 1930,
+   "prevalence": 0.0167,
+   "prevalence_ci95": [
+    0.0117,
+    0.0219
+   ],
+   "auc_lr": 0.615,
+   "auc_lr_ci95": [
+    0.528,
+    0.697
+   ],
+   "price_home": 29.48,
+   "price_home_is_state": true,
+   "price_phone": 30.56,
+   "price_phone_is_state": true
+  },
+  "RI": {
+   "births": 12447,
+   "medicaid_share": 0.3182,
+   "ess": 2010,
+   "prevalence": 0.0191,
+   "prevalence_ci95": [
+    0.0138,
+    0.0252
+   ],
+   "auc_lr": 0.618,
+   "auc_lr_ci95": [
+    0.526,
+    0.691
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 32.87,
+   "price_phone_is_state": true
+  },
+  "SC": {
+   "births": 68544,
+   "medicaid_share": 0.3904,
+   "ess": 1830,
+   "prevalence": 0.0188,
+   "prevalence_ci95": [
+    0.0129,
+    0.0252
+   ],
+   "auc_lr": 0.618,
+   "auc_lr_ci95": [
+    0.52,
+    0.715
+   ],
+   "price_home": 32.48,
+   "price_home_is_state": true,
+   "price_phone": 20.86,
+   "price_phone_is_state": true
+  },
+  "SD": {
+   "births": 11872,
+   "medicaid_share": 0.2216,
+   "ess": 1140,
+   "prevalence": 0.0149,
+   "prevalence_ci95": [
+    0.01,
+    0.0203
+   ],
+   "auc_lr": 0.531,
+   "auc_lr_ci95": [
+    0.44,
+    0.612
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 49.42,
+   "price_phone_is_state": true
+  },
+  "TN": {
+   "births": 98372,
+   "medicaid_share": 0.3927,
+   "ess": 1770,
+   "prevalence": 0.0169,
+   "prevalence_ci95": [
+    0.0118,
+    0.0226
+   ],
+   "auc_lr": 0.617,
+   "auc_lr_ci95": [
+    0.52,
+    0.716
+   ],
+   "price_home": 72.75,
+   "price_home_is_state": true,
+   "price_phone": 15.45,
+   "price_phone_is_state": true
+  },
+  "TX": {
+   "births": 449614,
+   "medicaid_share": 0.4254,
+   "ess": 1180,
+   "prevalence": 0.0261,
+   "prevalence_ci95": [
+    0.016,
+    0.0372
+   ],
+   "auc_lr": 0.657,
+   "auc_lr_ci95": [
+    0.561,
+    0.735
+   ],
+   "price_home": 40.94,
+   "price_home_is_state": true,
+   "price_phone": 32.34,
+   "price_phone_is_state": true
+  },
+  "UT": {
+   "births": 49287,
+   "medicaid_share": 0.1503,
+   "ess": 1370,
+   "prevalence": 0.0157,
+   "prevalence_ci95": [
+    0.0098,
+    0.0229
+   ],
+   "auc_lr": 0.597,
+   "auc_lr_ci95": [
+    0.499,
+    0.691
+   ],
+   "price_home": 58.74,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  },
+  "VA": {
+   "births": 110296,
+   "medicaid_share": 0.2867,
+   "ess": 1850,
+   "prevalence": 0.0181,
+   "prevalence_ci95": [
+    0.0129,
+    0.0242
+   ],
+   "auc_lr": 0.622,
+   "auc_lr_ci95": [
+    0.54,
+    0.704
+   ],
+   "price_home": 25.29,
+   "price_home_is_state": true,
+   "price_phone": 35.54,
+   "price_phone_is_state": true
+  },
+  "VT": {
+   "births": 6447,
+   "medicaid_share": 0.2841,
+   "ess": 1320,
+   "prevalence": 0.0125,
+   "prevalence_ci95": [
+    0.008,
+    0.0175
+   ],
+   "auc_lr": 0.578,
+   "auc_lr_ci95": [
+    0.435,
+    0.689
+   ],
+   "price_home": 43.98,
+   "price_home_is_state": false,
+   "price_phone": 16.96,
+   "price_phone_is_state": true
+  },
+  "WA": {
+   "births": 95971,
+   "medicaid_share": 0.2726,
+   "ess": 1520,
+   "prevalence": 0.0157,
+   "prevalence_ci95": [
+    0.0111,
+    0.0206
+   ],
+   "auc_lr": 0.626,
+   "auc_lr_ci95": [
+    0.537,
+    0.693
+   ],
+   "price_home": 33.86,
+   "price_home_is_state": true,
+   "price_phone": 27.29,
+   "price_phone_is_state": true
+  },
+  "WI": {
+   "births": 65607,
+   "medicaid_share": 0.2785,
+   "ess": 1790,
+   "prevalence": 0.0165,
+   "prevalence_ci95": [
+    0.0115,
+    0.0222
+   ],
+   "auc_lr": 0.587,
+   "auc_lr_ci95": [
+    0.494,
+    0.678
+   ],
+   "price_home": 25.27,
+   "price_home_is_state": true,
+   "price_phone": 13.91,
+   "price_phone_is_state": true
+  },
+  "WV": {
+   "suppressed": true
+  },
+  "WY": {
+   "births": 6755,
+   "medicaid_share": 0.2594,
+   "ess": 1330,
+   "prevalence": 0.0135,
+   "prevalence_ci95": [
+    0.0093,
+    0.0188
+   ],
+   "auc_lr": 0.578,
+   "auc_lr_ci95": [
+    0.476,
+    0.669
+   ],
+   "price_home": 88.67,
+   "price_home_is_state": true,
+   "price_phone": 47.46,
+   "price_phone_is_state": false
+  }
+ },
+ "states_note": "POST HOC, EXPLORATORY. Test set raked to each state's first births (CDC WONDER 2022-24) on race/ethnicity, Medicaid, education, BMI and age; assumes risk given these is the same as in nuMoM2b. State-level summaries only. Source: src/public_bins.py with src/state_reweighted_economics.py"
 };
 const LABELS = { LR_tuned: 'Logistic regression (tuned)', GB_tuned: 'Gradient boosting (tuned)', Stacking_orig: 'Stacking ensemble',
   LR_orig: 'Logistic regression (as submitted)', FLAML_tuned: 'FLAML (imbalance-aware)', AutoGluon: 'AutoGluon' };
 const $ = id => document.getElementById(id);
 const fmt$ = v => (v < 0 ? '−' : '') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US');
 const fmtSigned = v => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US');
-const N = DATA.n, E = DATA.events, PREV = E / N;
+const N = DATA.n; let E = DATA.events, PREV = E / N, POP = 'nuMoM2b', BINS = DATA.models, BF = 1;
+const NAMES = { US: 'United States', AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut',
+  DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota',
+  MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico',
+  NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island',
+  SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
+  WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming' };
+const STS = Object.keys(DATA.states).filter(k => k !== 'US' && !DATA.states[k].suppressed).sort((a, b) => NAMES[a].localeCompare(NAMES[b]));
+function setPop(p) {
+  POP = p; const s = DATA.states[p];
+  // a state = the test-set bins with readmission rates scaled to the state's reweighted prevalence (bin sizes and the
+  // model's predicted risks unchanged); per-state bins are not published (small-cell differencing)
+  const k = p === 'nuMoM2b' ? 1 : s.prevalence / (DATA.events / N);
+  BINS = p === 'nuMoM2b' ? DATA.models : Object.fromEntries(Object.entries(DATA.models).map(([m, bs]) =>
+    [m, bs.map(b => [b[0], b[1] * k, b[1] + b[2] - b[1] * k])]));
+  BF = p === 'nuMoM2b' ? 1 : s.ess / N;
+  E = BINS.LR_tuned.reduce((a, b) => a + b[1], 0); PREV = E / N;
+}
+const fmtR = v => POP === 'nuMoM2b' ? String(Math.round(v)) : v.toFixed(1);
 const COSTS = []; for (let c = 5; c <= 400; c += 5) COSTS.push(c);
 const NBOOT = 300;
 
@@ -328,14 +1345,14 @@ function PhiInv(p) { // Acklam
   if (p > 1 - pl) { const q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
   const q = p - 0.5, r = q * q; return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
 function simValue(auc, cost, V) { // per patient, calibrated binormal model, contact if risk >= cost/V
-  const t = cost / V; if (t >= 1) return 0;
+  const t = cost / V; if (t >= 1) return { v: 0, fl: 0 };
   const dd = Math.SQRT2 * PhiInv(auc), lg = x => Math.log(x / (1 - x));
   const s = (lg(t) - lg(PREV) + dd * dd / 2) / dd;
   const tpr = 1 - Phi(s - dd), fpr = 1 - Phi(s);
-  return V * PREV * tpr - cost * (PREV * tpr + (1 - PREV) * fpr);
+  return { v: V * PREV * tpr - cost * (PREV * tpr + (1 - PREV) * fpr), fl: PREV * tpr + (1 - PREV) * fpr };
 }
 
-// ---- model value from bins: bins sorted by risk, descending; contact a bin if its lowest risk >= cut-off
+// ---- model value from bins: bins sorted by risk, descending; contact a bin if its mean predicted risk >= cut-off
 function cum(bins, w) { // w: optional [ev, nonev] weight arrays (bootstrap)
   const ev = [0], ne = [0];
   bins.forEach((b, i) => { ev.push(ev[i] + (w ? w[0][i] : b[1])); ne.push(ne[i] + (w ? w[1][i] : b[2])); });
@@ -347,16 +1364,16 @@ function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Ma
 
 const boots = {};
 function getBoots(m) {
-  if (boots[m]) return boots[m];
-  const bins = DATA.models[m], rnd = mulberry(42), reps = [];
+  const key = m + '|' + POP; if (boots[key]) return boots[key];
+  const bins = BINS[m], rnd = mulberry(42), reps = [];
   for (let r = 0; r < NBOOT; r++) {
-    const w = [bins.map(b => poisson(b[1], rnd)), bins.map(b => poisson(b[2], rnd))];
+    const w = [bins.map(b => poisson(b[1] * BF, rnd) / BF), bins.map(b => poisson(b[2] * BF, rnd) / BF)];
     reps.push(cum(bins, w));
   }
-  return (boots[m] = { point: cum(bins), reps });
+  return (boots[key] = { point: cum(bins), reps });
 }
 function evalAt(m, cost, V, impl) { // per 1,000 deliveries
-  const bins = DATA.models[m], B = getBoots(m), t = cost / V, k = nFlaggedBins(bins, t);
+  const bins = BINS[m], B = getBoots(m), t = cost / V, k = nFlaggedBins(bins, t);
   const score = c => { const n = c.ev[c.ev.length - 1] + c.ne[c.ne.length - 1]; if (!n) return [0, 0, 0];
     const tp = c.ev[k], fl = tp + c.ne[k];
     const model = (V * tp - cost * fl) / n - (k > 0 ? impl : 0);
@@ -436,22 +1453,29 @@ function render() {
   $('costOut').textContent = '$' + cost; $('effOut').textContent = Math.round(eff * 100) + '%'; $('rcOut').textContent = fmt$(rc);
   $('implOut').textContent = '$' + impl.toFixed(2); $('aucOut').textContent = auc.toFixed(2); $('auc').disabled = !simOn;
   const rows = COSTS.map(c => evalAt(m, c, V, impl)), cur = evalAt(m, cost, V, impl);
-  const sim = COSTS.map(c => (simValue(auc, c, V) - impl) * 1000);
+  const sim = COSTS.map(c => { const r = simValue(auc, c, V); return (r.v - (r.fl >= 0.001 ? impl : 0)) * 1000; });  // running cost only if it flags anyone, as for the real model
   const simGain = COSTS.map((c, i) => sim[i] - Math.max(rows[i].all, 0));
   const win = []; let a = null; rows.forEach((r, i) => { if (r.gain > 0 && a === null) a = COSTS[i] - 2.5; if ((r.gain <= 0 || i === rows.length - 1) && a !== null) { win.push([a, COSTS[i] - 2.5]); a = null; } });
   const bestAll = cur.all > 0; const breakEven = PREV * V;
   $('stats').replaceChildren(
     stat('Risk cut-off', (cur.cut * 100).toFixed(2) + '%', 'contact if predicted risk is at least this'),
-    stat('Contacted by the model', (cur.flagged * 100).toFixed(1) + '%', cur.reached + ' of ' + E + ' readmissions reached'),
+    stat('Contacted by the model', (cur.flagged * 100).toFixed(1) + '%', fmtR(cur.reached) + ' of ' + fmtR(E) + (POP === 'nuMoM2b' ? '' : ' (weighted)') + ' readmissions reached'),
     stat('Better no-model strategy', bestAll ? 'Contact all' : 'Contact none', fmtSigned(Math.max(cur.all, 0)) + ' per 1,000 deliveries'),
     stat('Model adds', fmtSigned(cur.gain), `95% interval ${fmtSigned(cur.lo)} to ${fmtSigned(cur.hi)} per 1,000`));
   const v = $('verdict'); v.replaceChildren(); const pill = document.createElement('span');
-  const state = cur.lo > 0 ? ['good', 'Gain established'] : cur.hi < 0 ? ['bad', 'Model loses money'] : ['flat', 'Gain not established'];
+  const none = cur.k === 0, every = cur.k === BINS[m].length;
+  const state = none ? ['flat', 'Model changes nothing'] : every ? ['bad', 'Model adds only cost'] : cur.lo > 0 ? ['good', 'Gain established'] : cur.hi < 0 ? ['bad', 'Model loses money'] : ['flat', 'Gain not established'];
   pill.className = 'pill ' + state[0]; pill.textContent = state[1]; v.appendChild(pill);
   const txt = document.createElement('span');
-  txt.textContent = `At $${cost} per contact, ${bestAll ? 'contacting every patient' : 'contacting no one'} is the strategy to beat. ` +
-    `The two break even at about $${Math.round(breakEven)} per contact, which is where any model has the most room to help.` +
-    (simOn ? ` The simulated AUC ${auc.toFixed(2)} model would add ${fmtSigned(simGain[COSTS.indexOf(cost)])} here.` : '');
+  const why = `A contact is worth $${cost} only for a mother whose readmission risk is at least ${(cur.cut * 100).toFixed(1)}% ` +
+    `(the contact cost divided by the $${Math.round(V).toLocaleString('en-US')} saved by preventing one readmission). `;
+  const pop = `Across all mothers, readmission is ${(PREV * 100).toFixed(1)}%, so contacting everyone pays only while a contact costs less than about $${Math.round(breakEven)}. `;
+  const what = none ? `No group of mothers has an average predicted risk that high, so the model says: contact no one. That is the same decision you would make without it, so it adds nothing and is not worth running at this price.`
+    : every ? `The model flags every mother, the same decision as contacting everyone without a model, so it only adds its running cost.`
+    : `The model flags the ${(cur.flagged * 100).toFixed(1)}% of mothers above that risk; the question is whether that beats ${bestAll ? 'contacting everyone' : 'contacting no one'}. ` +
+      `A model has the most room to help near $${Math.round(breakEven)}, where whom to include or skip matters most.`;
+  txt.textContent = ' ' + why + pop + what +
+    (simOn ? ` (A perfectly calibrated model with AUC ${auc.toFixed(2)} would add ${fmtSigned(simGain[COSTS.indexOf(cost)])} per 1,000 deliveries here.)` : '');
   v.appendChild(txt);
   const s1 = [{ name: LABELS[m], y: rows.map(r => r.model), color: '--model' }, { name: 'Contact all', y: rows.map(r => r.all), color: '--all', noRange: true }];
   if (simOn) s1.push({ name: `Simulated AUC ${auc.toFixed(2)}`, y: sim, color: '--sim', dash: '6 4' });
@@ -461,14 +1485,78 @@ function render() {
   if (simOn) s2.push({ name: `Simulated AUC ${auc.toFixed(2)}`, y: simGain, color: '--sim', dash: '6 4' });
   legend($('legend2'), s2.map(s => [s.name, s.color, s.dash]));
   drawChart($('c2'), s2, { cost, band: rows.map(r => [r.lo, r.hi]), aria: 'Gain of the model over the better no-model strategy' });
+  drawStates(V, impl, m);
   // table
   const t = $('tbl'); t.replaceChildren(); const hr = t.insertRow();
   ['Model', 'Contacted', 'Readmissions reached', 'Model value / 1,000', 'Adds over best default', '95% interval'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
   Object.keys(DATA.models).forEach(k => { const r = evalAt(k, cost, V, impl), tr = t.insertRow();
-    [LABELS[k], (r.flagged * 100).toFixed(1) + '%', r.reached + ' / ' + E, fmtSigned(r.model), fmtSigned(r.gain), `${fmtSigned(r.lo)} to ${fmtSigned(r.hi)}`]
+    [LABELS[k], (r.flagged * 100).toFixed(1) + '%', fmtR(r.reached) + ' / ' + fmtR(E), fmtSigned(r.model), fmtSigned(r.gain), `${fmtSigned(r.lo)} to ${fmtSigned(r.hi)}`]
       .forEach(x => { tr.insertCell().textContent = x; }); });
 }
 
+function popUI() {
+  const s = DATA.states[POP], note = $('popNote'), btns = $('priceBtns'); btns.replaceChildren();
+  if (POP === 'nuMoM2b') { note.textContent = `Unweighted test set: ${N.toLocaleString('en-US')} first births at 8 US centres, ${DATA.events} readmissions (${(PREV * 100).toFixed(2)}%).`; return; }
+  note.textContent = `POST HOC. Test set reweighted to ${NAMES[POP]}'s first births: readmission ${(s.prevalence * 100).toFixed(2)}% ` +
+    `(${(s.prevalence_ci95[0] * 100).toFixed(2)}–${(s.prevalence_ci95[1] * 100).toFixed(2)}), Medicaid ${Math.round(s.medicaid_share * 100)}%, ` +
+    `AUC ${s.auc_lr.toFixed(3)} (${s.auc_lr_ci95[0].toFixed(3)}–${s.auc_lr_ci95[1].toFixed(3)}), effective sample ${s.ess.toLocaleString('en-US')}.`;
+  [['home visit', s.price_home, s.price_home_is_state], ['phone call', s.price_phone, s.price_phone_is_state]].forEach(([lab, pr, own]) => {
+    const b = document.createElement('button'); b.type = 'button'; const c = Math.min(400, Math.max(5, Math.round(pr / 5) * 5));
+    b.textContent = `Medicaid ${lab}: $${pr.toFixed(0)}${own ? '' : ' (national)'}`; b.title = `Set the contact cost to $${c} (slider steps of $5)`;
+    b.addEventListener('click', () => { $('cost').value = c; render(); }); btns.appendChild(b); });
+}
+function drawStates(V, impl, m) {
+  const host = $('c3'); host.innerHTML = '';
+  const W = 720, H = 340, M = { l: 66, r: 14, t: 12, b: 38 }, XMAX = 150;
+  const pts = STS.map(k => { const s = DATA.states[k]; return { k, s, x: s.price_home, y: s.prevalence * V }; });
+  const yhi = Math.max(...pts.map(p => p.y)) * 1.25;
+  const X = v => M.l + Math.min(v, XMAX) / XMAX * (W - M.l - M.r), Y = v => M.t + (yhi - v) / yhi * (H - M.t - M.b);
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Break-even contact cost against Medicaid home-visit price by state' }, host);
+  niceTicks(0, yhi, 5).forEach(t => { el('line', { x1: M.l, x2: W - M.r, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }, svg);
+    const tx = el('text', { x: M.l - 8, y: Y(t) + 4, 'text-anchor': 'end' }, svg); tx.textContent = fmt$(t); });
+  [0, 25, 50, 75, 100, 125, 150].forEach(t => { const tx = el('text', { x: X(t), y: H - 16, 'text-anchor': 'middle' }, svg); tx.textContent = '$' + t + (t === XMAX ? '+' : ''); });
+  const xl = el('text', { x: W - M.r, y: H - 1, 'text-anchor': 'end' }, svg); xl.textContent = 'Medicaid payment per home visit';
+  const yl = el('text', { x: M.l + 6, y: M.t + 12, 'text-anchor': 'start' }, svg); yl.textContent = 'break-even cost per contact';
+  el('line', { x1: X(0), y1: Y(0), x2: X(Math.min(XMAX, yhi)), y2: Y(Math.min(XMAX, yhi)), stroke: css('--axis'), 'stroke-width': 1.5, 'stroke-dasharray': '4 4' }, svg);
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; host.appendChild(tip);
+  pts.forEach(p => {
+    const sel = p.k === POP, own = p.s.price_home_is_state, g = el('g', { tabindex: 0, role: 'button', 'aria-label': NAMES[p.k] }, svg);
+    el('circle', { cx: X(p.x), cy: Y(p.y), r: 14, fill: 'transparent' }, g);
+    el('circle', { cx: X(p.x), cy: Y(p.y), r: sel ? 7 : 5, fill: own ? css(p.y >= p.x ? '--all' : '--model') : css('--surface'),
+      stroke: sel ? css('--ink') : own ? css('--surface') : css(p.y >= p.x ? '--all' : '--model'), 'stroke-width': 2 }, g);
+    if (sel || p.x > XMAX) { const tx = el('text', { x: X(p.x) + (p.x > XMAX ? -10 : 10), y: Y(p.y) + 4, 'text-anchor': p.x > XMAX ? 'end' : 'start' }, svg);
+      tx.textContent = p.k + (p.x > XMAX ? ` $${Math.round(p.x)}` : ''); }
+    const show = () => { tip.replaceChildren(); [[NAMES[p.k], ''], ['Readmission (weighted)', (p.s.prevalence * 100).toFixed(2) + '%'], ['Break-even cost', fmt$(p.y)],
+      ['Medicaid home visit', fmt$(p.x) + (own ? '' : ' (national)')], ['AUC, tuned LR', p.s.auc_lr.toFixed(3)]].forEach(([a, b], i) => {
+        const r = document.createElement('div'); r.className = 'row'; const n = document.createElement('span'); n.textContent = a; r.appendChild(n);
+        if (i) { const v = document.createElement('strong'); v.textContent = b; r.appendChild(v); } else n.style.color = css('--ink'); tip.appendChild(r); });
+      tip.hidden = false; const bx = host.getBoundingClientRect(); tip.style.left = Math.min(Math.max(0, X(p.x) / W * bx.width + 12), bx.width - tip.offsetWidth) + 'px';
+      tip.style.top = Math.max(0, Y(p.y) / H * bx.height - 40) + 'px'; };
+    g.addEventListener('pointerenter', show); g.addEventListener('focus', show);
+    g.addEventListener('pointerleave', () => { tip.hidden = true; }); g.addEventListener('blur', () => { tip.hidden = true; });
+    g.addEventListener('click', () => { $('pop').value = p.k; changePop(); });
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('pop').value = p.k; changePop(); } });
+  });
+  const pays = pts.filter(p => p.y >= p.x).length;
+  legend($('legend3'), [[`Pays to contact all (${pays})`, '--all'], [`Does not (${pts.length - pays})`, '--model'], ['Break-even = price', '--axis', true]]);
+  // state table at each state's Medicaid home-visit price
+  const t = $('stbl'); t.replaceChildren(); const hr = t.insertRow();
+  ['State', 'First births 2022–24', 'Medicaid', 'Readmission', 'AUC (tuned LR)', 'Break-even', 'Medicaid home visit', 'Phone call', `${LABELS[m]} adds at home-visit price`]
+    .forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+  const keep = POP; [...pts].sort((a, b) => (b.y - b.x) - (a.y - a.x)).forEach(p => { setPop(p.k);
+    const r = evalAt(m, Math.round(p.x / 5) * 5 || 5, V, impl), tr = t.insertRow(), s = p.s;
+    [NAMES[p.k], s.births.toLocaleString('en-US'), Math.round(s.medicaid_share * 100) + '%', (s.prevalence * 100).toFixed(2) + '%',
+     `${s.auc_lr.toFixed(3)} (${s.auc_lr_ci95[0].toFixed(2)}–${s.auc_lr_ci95[1].toFixed(2)})`, fmt$(p.y),
+     fmt$(s.price_home) + (s.price_home_is_state ? '' : '*'), fmt$(s.price_phone) + (s.price_phone_is_state ? '' : '*'),
+     `${fmtSigned(r.gain)} (${fmtSigned(r.lo)} to ${fmtSigned(r.hi)})`].forEach(x => { tr.insertCell().textContent = x; }); });
+  setPop(keep);
+  const cap = t.createCaption(); cap.style.captionSide = 'bottom'; cap.style.textAlign = 'left'; cap.style.paddingTop = '6px';
+  cap.textContent = 'Sorted by how far break-even exceeds the home-visit price. * national mean price. Gain per 1,000 deliveries at the home-visit price rounded to $5, net of running cost, approximate 95% interval.';
+}
+function changePop() { setPop($('pop').value); popUI(); render(); }
+[['nuMoM2b', 'nuMoM2b test set (8 US centres)'], ['US', 'United States, all first births (post hoc)']].concat(STS.map(k => [k, NAMES[k] + ' (post hoc)']))
+  .forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; $('pop').appendChild(o); });
+$('pop').addEventListener('change', changePop); popUI();
 Object.keys(DATA.models).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = LABELS[k]; $('model').appendChild(o); });
 ['cost', 'eff', 'rc', 'impl', 'model', 'simOn', 'auc'].forEach(id => $(id).addEventListener('input', render));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
