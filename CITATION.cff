@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this explorer, please cite it and the accompanying preprint."
+title: "When does the model pay? Interactive health-economic explorer for postpartum readmission risk models (nuMoM2b)"
+type: software
+license: MIT
+url: "https://martinfrasch.github.io/postpartum-readmission-economics/"
+repository-code: "https://github.com/martinfrasch/postpartum-readmission-economics"
+authors:
+  - family-names: Frasch
+    given-names: Martin G.
+    affiliation: University of Washington
+    orcid: "https://orcid.org/0000-0003-3159-6321"
+references:
+  - type: article
+    title: "Limits of Sociodemographic Data for Predicting Postpartum Readmission"
+    authors:
+      - family-names: Crabtree
+        given-names: Lauren
+      - family-names: Wakefield
+        given-names: Colin
+      - family-names: Gheorghe
+        given-names: Ciprian P.
+      - family-names: Frasch
+        given-names: Martin G.
+    doi: 10.1101/2025.12.16.25342440
+    journal: medRxiv

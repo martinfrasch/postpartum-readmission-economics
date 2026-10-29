@@ -1,0 +1,14 @@
+{
+  "title": "When does the model pay? Interactive health-economic explorer for postpartum readmission risk models (nuMoM2b)",
+  "upload_type": "software",
+  "description": "Self-contained web page exploring when acting on a postpartum readmission risk model adds economic value over contacting all or no patients, as a function of contact cost, intervention effectiveness, readmission cost and model running cost. Embeds only aggregate risk bins (each with at least 11 readmissions and 11 non-readmissions) from the nuMoM2b test set; no participant-level data. Companion to medRxiv preprint 10.1101/2025.12.16.25342440.",
+  "creators": [
+    {"name": "Frasch, Martin G.", "affiliation": "University of Washington", "orcid": "0000-0003-3159-6321"}
+  ],
+  "license": "MIT",
+  "keywords": ["postpartum readmission", "health economics", "clinical prediction", "decision analysis", "nuMoM2b"],
+  "related_identifiers": [
+    {"identifier": "10.1101/2025.12.16.25342440", "relation": "isSupplementTo", "scheme": "doi"},
+    {"identifier": "https://martinfrasch.github.io/postpartum-readmission-economics/", "relation": "isIdenticalTo", "scheme": "url"}
+  ]
+}
