@@ -1,5 +1,7 @@
 # When does the model pay?
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23749950.svg)](https://doi.org/10.5281/zenodo.23749950)
+
 An interactive explorer of the health-economic analysis in *Predicting postpartum readmission from sociodemographic data* (nuMoM2b cohort; manuscript under review at *Machine Learning: Health*).
 
 **Preprint:** [medRxiv 2025.12.16.25342440](https://doi.org/10.1101/2025.12.16.25342440). The link resolves to the latest version; the revised manuscript will be posted there.
@@ -26,6 +28,10 @@ The dashed "hypothetical better model" is a **simulation**: an idealised, perfec
 ## Build
 
 `index.html` is a single self-contained file. It is generated from the manuscript repository by inserting `results/revision/economic_bins_public.json` (written by `src/public_bins.py`) into `scripts/economics_explorer_template.html`.
+
+## Citation
+
+Cite the explorer as doi:[10.5281/zenodo.23749950](https://doi.org/10.5281/zenodo.23749950) (all versions; v1.0 is 10.5281/zenodo.23749951), together with the preprint.
 
 ## Licence
 
